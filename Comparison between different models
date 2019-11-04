@@ -1,0 +1,1246 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 43,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#import libraries\n",
+    "import datetime, warnings, scipy \n",
+    "import pandas as pd\n",
+    "from pandas import Series, DataFrame\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt \n",
+    "import matplotlib as mpl\n",
+    "import seaborn as sns\n",
+    "import random\n",
+    "from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 44,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#read 3 input files \n",
+    "# flight : details related to flights arrival,departure,delaytime,delay reason,corresponding airline etc.\n",
+    "# airports : mapping of airline code and its name\n",
+    "# airlines : mapping of airport_code and airport name ,city,state etc \n",
+    "#df = pd.read_csv(\"flight_delay_2019_header_rename.csv\", low_memory=False)\n",
+    "df2 = pd.read_csv(\"flights.csv\", low_memory=False)\n",
+    "#airports = pd.read_csv(\"airports.csv\")\n",
+    "#airlines = pd.read_csv(\"airlines.csv\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 45,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "['YEAR',\n",
+       " 'MONTH',\n",
+       " 'DAY',\n",
+       " 'DAY_OF_WEEK',\n",
+       " 'AIRLINE',\n",
+       " 'FLIGHT_NUMBER',\n",
+       " 'TAIL_NUMBER',\n",
+       " 'ORIGIN_AIRPORT',\n",
+       " 'DESTINATION_AIRPORT',\n",
+       " 'SCHEDULED_DEPARTURE',\n",
+       " 'DEPARTURE_TIME',\n",
+       " 'DEPARTURE_DELAY',\n",
+       " 'TAXI_OUT',\n",
+       " 'WHEELS_OFF',\n",
+       " 'SCHEDULED_TIME',\n",
+       " 'ELAPSED_TIME',\n",
+       " 'AIR_TIME',\n",
+       " 'DISTANCE',\n",
+       " 'WHEELS_ON',\n",
+       " 'TAXI_IN',\n",
+       " 'SCHEDULED_ARRIVAL',\n",
+       " 'ARRIVAL_TIME',\n",
+       " 'ARRIVAL_DELAY',\n",
+       " 'DIVERTED',\n",
+       " 'CANCELLED',\n",
+       " 'CANCELLATION_REASON',\n",
+       " 'AIR_SYSTEM_DELAY',\n",
+       " 'SECURITY_DELAY',\n",
+       " 'AIRLINE_DELAY',\n",
+       " 'LATE_AIRCRAFT_DELAY',\n",
+       " 'WEATHER_DELAY']"
+      ]
+     },
+     "execution_count": 45,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "list(df2.columns.values)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Decision tree based on origin,destination and airline"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 46,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df = df2[['AIRLINE', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT','DEPARTURE_DELAY','DAY_OF_WEEK','WEATHER_DELAY','SECURITY_DELAY','AIR_SYSTEM_DELAY','AIRLINE_DELAY','LATE_AIRCRAFT_DELAY']]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 47,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>AIRLINE</th>\n",
+       "      <th>ORIGIN_AIRPORT</th>\n",
+       "      <th>DESTINATION_AIRPORT</th>\n",
+       "      <th>DEPARTURE_DELAY</th>\n",
+       "      <th>DAY_OF_WEEK</th>\n",
+       "      <th>WEATHER_DELAY</th>\n",
+       "      <th>SECURITY_DELAY</th>\n",
+       "      <th>AIR_SYSTEM_DELAY</th>\n",
+       "      <th>AIRLINE_DELAY</th>\n",
+       "      <th>LATE_AIRCRAFT_DELAY</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-10.0</td>\n",
+       "      <td>6</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-4.0</td>\n",
+       "      <td>7</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-9.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-4.0</td>\n",
+       "      <td>2</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-6.0</td>\n",
+       "      <td>3</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "  AIRLINE ORIGIN_AIRPORT DESTINATION_AIRPORT  DEPARTURE_DELAY  DAY_OF_WEEK  \\\n",
+       "0      9E            MSP                 CVG            -10.0            6   \n",
+       "1      9E            MSP                 CVG             -4.0            7   \n",
+       "2      9E            MSP                 CVG             -9.0            1   \n",
+       "3      9E            MSP                 CVG             -4.0            2   \n",
+       "4      9E            MSP                 CVG             -6.0            3   \n",
+       "\n",
+       "   WEATHER_DELAY  SECURITY_DELAY  AIR_SYSTEM_DELAY  AIRLINE_DELAY  \\\n",
+       "0            NaN             NaN               NaN            NaN   \n",
+       "1            NaN             NaN               NaN            NaN   \n",
+       "2            NaN             NaN               NaN            NaN   \n",
+       "3            NaN             NaN               NaN            NaN   \n",
+       "4            NaN             NaN               NaN            NaN   \n",
+       "\n",
+       "   LATE_AIRCRAFT_DELAY  \n",
+       "0                  NaN  \n",
+       "1                  NaN  \n",
+       "2                  NaN  \n",
+       "3                  NaN  \n",
+       "4                  NaN  "
+      ]
+     },
+     "execution_count": 47,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 48,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "AIRLINE                1048572\n",
+       "ORIGIN_AIRPORT         1048572\n",
+       "DESTINATION_AIRPORT    1048572\n",
+       "DEPARTURE_DELAY        1019735\n",
+       "DAY_OF_WEEK            1048572\n",
+       "WEATHER_DELAY           207265\n",
+       "SECURITY_DELAY          207265\n",
+       "AIR_SYSTEM_DELAY        207265\n",
+       "AIRLINE_DELAY           207265\n",
+       "LATE_AIRCRAFT_DELAY     207265\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 48,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.count()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 49,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>AIRLINE</th>\n",
+       "      <th>ORIGIN_AIRPORT</th>\n",
+       "      <th>DESTINATION_AIRPORT</th>\n",
+       "      <th>DEPARTURE_DELAY</th>\n",
+       "      <th>DAY_OF_WEEK</th>\n",
+       "      <th>WEATHER_DELAY</th>\n",
+       "      <th>SECURITY_DELAY</th>\n",
+       "      <th>AIR_SYSTEM_DELAY</th>\n",
+       "      <th>AIRLINE_DELAY</th>\n",
+       "      <th>LATE_AIRCRAFT_DELAY</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-10.0</td>\n",
+       "      <td>6</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-4.0</td>\n",
+       "      <td>7</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-9.0</td>\n",
+       "      <td>1</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-4.0</td>\n",
+       "      <td>2</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>-6.0</td>\n",
+       "      <td>3</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "  AIRLINE ORIGIN_AIRPORT DESTINATION_AIRPORT  DEPARTURE_DELAY  DAY_OF_WEEK  \\\n",
+       "0      9E            MSP                 CVG            -10.0            6   \n",
+       "1      9E            MSP                 CVG             -4.0            7   \n",
+       "2      9E            MSP                 CVG             -9.0            1   \n",
+       "3      9E            MSP                 CVG             -4.0            2   \n",
+       "4      9E            MSP                 CVG             -6.0            3   \n",
+       "\n",
+       "   WEATHER_DELAY  SECURITY_DELAY  AIR_SYSTEM_DELAY  AIRLINE_DELAY  \\\n",
+       "0            NaN             NaN               NaN            NaN   \n",
+       "1            NaN             NaN               NaN            NaN   \n",
+       "2            NaN             NaN               NaN            NaN   \n",
+       "3            NaN             NaN               NaN            NaN   \n",
+       "4            NaN             NaN               NaN            NaN   \n",
+       "\n",
+       "   LATE_AIRCRAFT_DELAY  \n",
+       "0                  NaN  \n",
+       "1                  NaN  \n",
+       "2                  NaN  \n",
+       "3                  NaN  \n",
+       "4                  NaN  "
+      ]
+     },
+     "execution_count": 49,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 50,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "AIRLINE                1048572\n",
+       "ORIGIN_AIRPORT         1048572\n",
+       "DESTINATION_AIRPORT    1048572\n",
+       "DEPARTURE_DELAY        1019735\n",
+       "DAY_OF_WEEK            1048572\n",
+       "WEATHER_DELAY           207265\n",
+       "SECURITY_DELAY          207265\n",
+       "AIR_SYSTEM_DELAY        207265\n",
+       "AIRLINE_DELAY           207265\n",
+       "LATE_AIRCRAFT_DELAY     207265\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 50,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.count()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 51,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df = df.dropna()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 52,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "AIRLINE                207265\n",
+       "ORIGIN_AIRPORT         207265\n",
+       "DESTINATION_AIRPORT    207265\n",
+       "DEPARTURE_DELAY        207265\n",
+       "DAY_OF_WEEK            207265\n",
+       "WEATHER_DELAY          207265\n",
+       "SECURITY_DELAY         207265\n",
+       "AIR_SYSTEM_DELAY       207265\n",
+       "AIRLINE_DELAY          207265\n",
+       "LATE_AIRCRAFT_DELAY    207265\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 52,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.count()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 53,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<matplotlib.axes._subplots.AxesSubplot at 0x1a1e19e3d0>"
+      ]
+     },
+     "execution_count": 53,
+     "metadata": {},
+     "output_type": "execute_result"
+    },
+    {
+     "data": {
+      "image/png": "iVBORw0KGgoAAAANSUhEUgAAAf8AAAIJCAYAAACr0jQnAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAADl0RVh0U29mdHdhcmUAbWF0cGxvdGxpYiB2ZXJzaW9uIDIuMi4zLCBodHRwOi8vbWF0cGxvdGxpYi5vcmcvIxREBQAAIABJREFUeJzs3XfcHWWZ//HPl9BCryKGkqggXcCoKwgSUIqLAlIDyuKP3eguSBMQF1YR6woKIigGF1hYpRcREbAQ6UqEEJLQIkEIRapICSV5rt8fMwcmh9PmycmZmXO+b1/nxdR7rjmePPfc19xzjyICMzMzGxyLFB2AmZmZ9ZYrfzMzswHjyt/MzGzAuPI3MzMbMK78zczMBowrfzMzswHjyt/MzKykJJ0l6UlJ05qsl6RTJc2UNFXS5p2U68rfzMysvM4BdmyxfidgnfQzAfhxJ4W68jczMyupiLgBeLbFJrsA50biNmAFSau3K3fRbgVo1fb60w9WaqjH96y3e9Eh5HbSousXHUJu39IjRYeQy5ZLjCo6hNy+vt0zRYeQ25O3Vq/d+O4Z16pbZXXz7+Xiq77rcyQt9pqJETExRxGjgOw/1Nnpssdb7eTK38zMrCBpRZ+nsq/X6KKm7cWJK38zM7M8huYVHUHWbGDNzPwawGPtdqpe7sbMzMxqrgT2T3v9/xPwfES0TPmDW/5mZmb5xFDPDiXpfGAbYBVJs4GvAosBRMQZwNXAx4GZwMvAZzsp15W/mZlZHkO9q/wjYnyb9QEclLdcp/3NzMwGjFv+ZmZmOUQP0/4Liyt/MzOzPHqY9l9YnPY3MzMbMG75m5mZ5eG0v5mZ2YAp1yA/w+K0v5mZ2YBxy9/MzCwPp/3NzMwGjHv7m5mZWdW45W9mZpaDB/kxMzMbNE77m5mZWdW45W9mZpaH0/5mZmYDxoP8mJmZWdW45W9mZpaH0/5mZmYDxr39zczMrGp6WvlLmidpiqTpku6SdISkRdJ120h6Pl1f+3y0br9pki6WtFSmzN0khaT1MstGS5qT7jND0rmSFpO0Q6bsFyXdl06fK+kASafVxTtJ0th0+iFJd0uaKukPktZucF61zzEtvoNJ6XGnSrpX0mmSVmhXVjaWBmX+QNKjme9yQ0n3SxqZ2eZXkvbp9P8rMzNrIoa69ylIr1v+cyJi04jYEPgY8HHgq5n1N6bra5/f1u23EfAa8PnMPuOBm4D6iu0vEbEpsDGwBrBXRFxbKxuYDOyXzu/fYfzjImITYBJwXIPzqn2+06ac/dJyNgFeBX4x3LLSCn834BFga4CImA5cBhybbrMrsFhEXNDheZqZWTNDQ937FKSwtH9EPAlMAA6WpBy73gi8G0DSMsCWwIG8tfKvHWce8Cdg1AIFPL9bu1FeRLwGHA2sJem9wyxmHDAN+DHJhVDNCcCekjYFvgMcVL+jpAmSJkua/NNzzx/m4c3MrGoK7fAXEQ+mLde3pYu2kjQls8nuEfGX2oykRYGdgGvSRbsC10TE/ZKelbR5RNyRPYakJYEPAod2MfQdgSsy8yPr4v52RFzYSUERMU/SXcB6wF3DKGs8cD5J9uBbkhaLiNcj4mVJRwI3AN+PiAcaHHsiMBHg9acfjE7iNTMbdEmbstrK0Ns/2+q/MSJ2brBNtkK8EfifdHo8cEo6fUE6X6v835Xusw5wSURMbRNHs8ovu/x6SasBT9Ig7d+m/Fay30HHZUlanOTWyeER8YKkPwLbA78CiIhfSvo78KMFiM3MzLL8qN+CkfROYB5JZbp+i03fUiFKWhnYFthIUgAjgJB0dLrJXyJiU0mrA5MkfTIirmxxjGeAFeuWrQQ8nZkfB7wEnEOSVj+i1fl1QtIIkn4J9wxj9x2B5YG70zsnSwEvk1b+qaH0Y2ZmBhR4z1/SqsAZwGkRMZyU8x7AuRGxdkSMjog1gVnAh7MbRcTjwDHAl9uUdzuwpaS3p/GNBZYg6UiXLW8OcBiwv6SVhhH3GyQtBnwbeKSDzEQj44F/Tc9/NDAG2D77NISZmXWZO/zlNrL2qB/wW+A64GuZ9VvVPea2R4uyxgOX1y27FNi3wbZXAEtJ2qpZYRHxN5J+AVentwtOAcZHgxc3pxcU5/NmJ7qRdXG36+3/M0lTSTrqLQ3sklnXqqxfSZqdfi4GdiDTyo+Il0iefPhEm+Obmdlw9cGjfj1N+0fEiBbrJpGksButW6bBsm0aLDs1M7tRZnkA763bttH+v2D+x+6y60bXzX8hM930vBqU85bj1q1vWFa7/TLbfapufnSHoZmZWSf8Yh8zMzOrmjL09u9Lki4nuQef9aWIuLaIeMzMrEvc29+aiYjdio7BzMwWAr/Yx8zMzKrGLX8zM7M8nPY3MzMbME77m5mZWdW45W9mZpZHH7T8XfmbmZnl0A9v9XPa38zMbMC45W9mZpaH0/5mZmYDpg8e9XPa38zMbMC45W9mZpaH0/5mZmYDxml/MzMzqxq3/M3MzPJw2t/MzGzAOO1vZmZmVeOWv5mZWR5O+1u/eM96uxcdQi733Xtp0SHktuH6exUdQm6LL1KtPxFXvDCj6BBy++1VI4sOIbc5814rOoTcHuxmYX1Q+Tvtb2ZmNmCqdVlvZmZWtD7o8OfK38zMLA+n/c3MzKxq3PI3MzPLw2l/MzOzAeO0v5mZmVWNW/5mZmZ5OO1vZmY2YJz2NzMzs6px5W9mZpbH0FD3Ph2QtKOk+yTNlHRMg/VrSbpe0p2Spkr6eLsyXfmbmZnlEdG9TxuSRgCnAzsBGwDjJW1Qt9lxwEURsRmwD/CjduW68jczMyuvDwAzI+LBiHgNuADYpW6bAJZLp5cHHmtXqDv8mZmZ5dHbDn+jgEcy87OBD9ZtczxwnaQvAEsDH21XqFv+ZmZmeXTxnr+kCZImZz4T6o6mBhHU3y8YD5wTEWsAHwfOk9SyfnfL38zMrCARMRGY2GKT2cCamfk1eGta/0Bgx7S8WyUtCawCPNmsULf8zczM8oih7n3aux1YR9IYSYuTdOi7sm6bh4HtACStDywJPNWqULf8zczM8ujhPf+ImCvpYOBaYARwVkRMl3QCMDkirgS+CJwp6XCSWwIHRLR+lMCVv5mZWYlFxNXA1XXLvpKZngFsmadMV/5mZmZ5dPB8ftm58jczM8vDY/ubmZlZ1bjlb2ZmlkcftPxd+ZuZmeXR2SN6pea0v5mZ2YDpq8pf0jxJUyRNl3SXpCPqhziU9ANJj9aWS9pQ0v2SRma2+ZWkfVocZ9f0tYn3Srpb0q6ZdedImpXGMUXSIU3KOFTSKZn5n0j6bWb+C5JOrTuv2ueYdPmk9DWPteWXpMuPl3RkOr2kpN9I+mq+b9PMzBqJoejapyj9lvafExGbAkh6G/BzkjccfTVdtgiwG8lLErYGJqWDJVwGHAscl1bki0XEBY0OIOm9wEnAxyJilqQxwG8kPRgRU9PNjoqIS9rEeguwX2Z+U2ARSSMiYh6wBXBF/Xk1sF9ETG4S6+LApcCfI+JrbeIxM7NO9ME9/75q+WdFxJPABOBgSbUXI4wDpgE/JnkRQs0JwJ6SNgW+AxzUougjgW9FxKz0OLOAbwNH5QzxTmBdSSMlLQ+8DEwBNk7Xb0FygTBci5K8+vGBiDim0QbZF0r845WnF+BQZmZWJX1b+QNExIMk5/i2dNF44HzgcmBnSYul271MUqnfAFwQEQ+0KHZD4M91yyany2tOzKTiN6aBiJhLUtm/H/gn4I/AbcAWkt4BKCJqr3EcWZf23ztT1M8yy0/MLD8amBsRhzU7kYiYGBFjI2Lsckuu0uKUzczsDb0d23+h6Le0fyOCN1LgHwcOj4gXJP0R2B74FUBE/FLS34EfdVBe/Y2a+mWdpP0BbiZp4Y8EbgUeAP6T5IUM2Vb/cNL+NwEfkrRuRNzfQSxmZtaJAu/Vd0tft/wlvROYR/Jawx1J7v/fLekh4MPMn/oHGEo/rUwHxtYt2xyYMYwQbyGp/D9EUvnfA2yQLrt5GOVl3QAcBvw6zSSYmZkBfdzyl7QqcAZwWkSEpPHAv0bE+en6pYFZkpZK0/6dOgm4WNLvI+IhSaNJWut7DCPMW4CzgUfTPgpIegrYBdhzGOXNJyIuTb+HayRtHRF/X9AyzcwGXh90+Ou3yn+kpCnAYsBc4Dzg+5KWAnYAPlfbMCJeknQT8Angwk4PEBFTJH0J+GXaZ+B14OiImJI32Ih4Lq3sp2cW30rydqa7GpxXzTWZTnw/kzQnnX46Ij5ad4wzJL0duFLS9hHxSt44zcwsow8qf7V55a8NiHeuslmlfgj33Xtp0SHktuH6exUdQm6LL1Kt9sELc/Mk8cphmUVHtt+oZObMe63oEHJ78Ok71X6rzrx8yue69vdyqcN+0rW48ujre/5mZmb2VtW6rO8hSZ8FDq1bfHNEtBoDoFlZfwSWqFv8mYi4e7jxmZlZQfog7e/Kv4mIOJukM143yvpgN8oxM7MS8KN+ZmZmVjVu+ZuZmeXRB6/0deVvZmaWh9P+ZmZmVjVu+ZuZmeUQ7u1vZmY2YJz2NzMzs6pxy9/MzCwP9/Y3MzMbME77m5mZWdW45W9mZpaHe/ubmZkNGKf9zczMrGrc8jczM8vDvf3NzMwGjNP+ZmZmVjVu+ZuZmeXgsf2tb5y06PpFh5DLhuvvVXQIuU2/56KiQ8itat/zoqren7QXXn+56BByG6EBTxo77W9mZmZVU73LZDMzsyL1Qcvflb+ZmVkeffCon9P+ZmZmA8YtfzMzszyc9jczMxss0QeVv9P+ZmZmA8YtfzMzszz6oOXvyt/MzCyPPhjhz2l/MzOzAeOWv5mZWR5O+5uZmQ2YPqj8nfY3MzMbMG75m5mZ5RBR/Za/K38zM7M8nPY3MzOzqnHL38zMLI8+aPm78jczM8vBY/ubmZlZ5bjlb2ZmlkcftPxd+ZuZmeVR/aH9nfY3MzMbNG75m5mZ5dAPHf5c+ZuZmeXRB5V/KdP+kk6WdFhm/lpJP83Mf0/SEZLmSJqS+eyf2WYzSSFph3R+5cx2T0h6NDO/uKQX62I4QNJp6fTxddtPkbSCpG0kPS/pTkn3SjqpzXkdIOmpdPsH0vPaIrP+HEmzMse4pT6WBmXWn6ck3SRpp8w2e0m6prNv38zMykTSjpLukzRT0jFNttlL0gxJ0yX9vF2ZZW353wLsCZwiaRFgFWC5zPotgMOAv0TEpk3KGA/clP732oh4BtgUksoceDEi3qisJbWL6eTs9pl9boyInSWNBO6UdHlE3NyinAsj4uB0/3HAZZLGRcQ96fqjIuKSdsFk1J9nSPo8cLGk64ERwDeBHXOUaWZmzfSww5+kEcDpwMeA2cDtkq6MiBmZbdYBvgxsGRHPSXpbu3JL2fIHbiap4AE2BKYBL0haUdISwPrAc812VlIr7wEcAGwvacmFGy5ExBxgCjAqxz7XAxOBCcM5ZrPzjIhpwC+BLwFfBc6NiL802H+CpMmSJl/38szhhGBmNnBiKLr26cAHgJkR8WBEvAZcAOxSt82/AadHxHMAEfFku0JLWflHxGPAXElrkVwE3Ar8EfgQMBaYCrwGvKsuFb9VWsSWwKy0wpsEfLyDw47MlgWcULf+8Mz66+t3lrQisA5wQ87TvQNYLzN/YuY4P2uzb6vz/BqwL7AT8N1GO0fExIgYGxFjt1/q3TnDNjOzBZVthKWf+sbgKOCRzPxs3trIXBdYV9LNkm6T1DbTW9a0P7zZ+t8C+D7JyW4BPE9yWwCap/3Hk1wdkf73M8BlbY43J1uWpANILjRq3pL2T20laSrwHuA7EfFEm+PUq7/fkCft3/Q8I+IlSReS3N54NWdMZmbWTBfT/hExkSQD3Eyje9L1KYNFSRqf2wBrADdK2igi/t6s0DJX/reQVPYbk6T9HwG+CPwDOKvZTun9kd2BT0o6luSLW1nSshHxwkKIs3bPf13gpvSe/5Qc+28G3NN2qzodnucQfTEchZlZefT4Ub/ZwJqZ+TWAxxpsc1tEvA7MknQfycXA7c0KLWXaP3UzsDPwbETMi4hngRVIUv+3ttjvo8BdEbFmRIyOiLWBS4FdF2awEXE/8G2S++wdkfQRkvv9Zw7jkIWcp5mZ9dTtwDqSxkhaHNgHuLJumyuAcQCSViG5DfBgq0LL3PK/m6SX/8/rli0TEU9LWob0nn9m/VnA5sDldWVdCvw7cN4CxHO4pE9n5htVsmcAR0oaExGzmpSzt6QPA0sBs4DdMz39Ibnnf1xm/gPpfw+QlD3mvUD97YFunKeZmbXSw3xqRMyVdDBwLcnTW2dFxHRJJwCTI+LKdN32kmYA80huHz/TqlxFVH+wAltwl71930r9EI6Zd3/RIeQ2/Z6Lig4htw3X36voEHKZF9W7y/X60OtFh5DbCJU5adzYrGfuavs8d6ee+cRHuvb3cuVf/qFrceVR5pa/mZlZ+VTvGvMtXPkvBJI+Cxxat/jmiDioiHjMzMyyXPkvBBFxNnB20XGYmVn3VfDu0lu48jczM8ujDyr/6vXaMDMzswXilr+ZmVkOTvubmZkNmH6o/J32NzMzGzBu+ZuZmeXQDy1/V/5mZmZ5RCGD8nWV0/5mZmYDxi1/MzOzHJz2NzMzGzAx5LS/mZmZVYxb/mZmZjk47W9mZjZgwr39zczMrGrc8jczM8vBaX8zM7MB497+ZmZmVjlu+RsA39IjRYeQy+KLVO+nu+H6exUdQm7T77mo6BBy2WD9PYsOIbclRixedAiWU0TRESy46v0FNTMzK5DT/mZmZlY5bvmbmZnl0A8tf1f+ZmZmOfTDPX+n/c3MzAaMW/5mZmY5OO1vZmY2YDy2v5mZmVWOW/5mZmY5eGx/MzOzATPktL+ZmZlVjVv+ZmZmOfRDhz9X/mZmZjn0w6N+TvubmZkNGLf8zczMcuiH4X1d+ZuZmeXgtL+ZmZlVjlv+ZmZmOfTDc/6u/M3MzHLoh0f9nPY3MzMbMG75m5mZ5eDe/mZmZgOmH+75O+1vZmY2YNzyNzMzy8Ed/hYyScdKmi5pqqQpkj4oaZKk+9L5KZIuyWy/v6Rp6T4zJB2ZLp8kaWxmu9GSpqXT20h6XtKdku6VdFJmuwMknZbGUTvevMz0IZJulaR0+xHp8i2anM/xkh5Nt3lA0mWSNsisb3hu6X5HNilzN0khab10fsn0PDbObHO0pDOG9/+CmZllRXTvU5TStvwlfQjYGdg8Il6VtAqweLp6v4iYXLf9TsBhwPYR8ZikJYHPdHi4GyNiZ0kjgTslXR4RN9dWRsQ3gW+mx3kxIjbNHHcL4EDgp8AXgNsj4pYWxzo5Ik5K990b+L2kjSPiqWbn1sZ44CZgH+D4iHhF0mHAjyRtDbwD+BwwtkUZZmY2QMrc8l8deDoiXgWIiKcj4rEW238ZOLK2TUS8EhFn5jlgRMwBpgCjcux2OPBlSRsCBwNfynG8C4HrgH3zxFkjaRlgS5KLj30y5V4DPA7sD5xMclHw3HCOYWZm8xsKde1TlDJX/tcBa0q6X9KPJH0ks+5nmdT4iemyjYA/L8gBJa0IrAPc0Ok+EfE4cApwK/CNiHg252HvANbLzDc6t2Z2Ba6JiPuBZyVtnll3GEm2YtWIOK/RzpImSJosafJTLz+RM2wzs8EUoa59ilLatH9EvCjpfcBWwDjgQknHpKvzpsYb3VnJLttK0lTgPcB3IiJvTXh6ut85OfcDqP9/P8+5jSe58AC4IJ2/AyC99fF74KpmO0fERGAiwNjVt+qDJ1fNzKwTpa38ASJiHjAJmCTpbuBfWmw+HXgf8PsG654BVszMrwQ8nZmv3fNfF7gpvec/JUecQ5KGW3luBuS5kAFA0srAtsBG6bFHACHp6Ig3upEMpR8zM+sSP+e/EEl6j6R1Mos2Bf7aYpdvA9+V9PZ0/yUkHZKumwR8utYrn+Qi4vr6AtL0+bfJcd9+QUjaHdgeOH8Yu+8BnBsRa0fE6IhYE5gFfLibMZqZ2fyii5+ilLnlvwzwQ0krAHOBmcAE4BKS++Jz0u2ejoiPRsTVklYDfptW8gGclW4zkeS++l1pK3kySQfBRs4AjpQ0ZqGcFRwu6dPA0sA0YNtMT39ocG7p9HFpL/6amcB36sq+lKTz4I0LIW4zM6M/Wv6Kfhik2BZY1e75vzL0etEh5Pba0NyiQ8ht+j0XFR1CLhusv2fRIVhJPfDUn7tWY9+y+u5d+3u5xeOXFnIlUeaWv5mZWen0wwh/rvwXAknHAvVNkIvTwYLMzKzC+qEXtSv/hSA7IqCZmVnZuPI3MzPLId4yPEv1uPI3MzPLYahS3aMbK+1z/mZmZgaSdkzf+DozM9Jto+32SN/y2vZFbm75m5mZ5TDUw7S/pBEkQ8h/DJgN3C7pyoiYUbfdssAhwB87KdctfzMzsxwCde3TgQ8AMyPiwYh4jeQ9Lrs02O7rwHeBVzop1JW/mZlZQbJvV00/E+o2GQU8kpmfTd1r5yVtBqwZEU1f5FbPaX8zM7Mcuvmcf/btqk00Sg+80eVQ0iLAycABeY7ryt/MzCyHHj/qNxtYMzO/BvBYZn5ZYCOSt98CvB24UtInW70e3ml/MzOz8rodWEfSGEmLA/sAV9ZWRsTzEbFK+nbX0cBtQMuKH9zyNzMzy6WXw/tGxFxJBwPXAiOAsyJiuqQTgMkRcWXrEhpz5W9mZpZDr8f2j4irgavrln2lybbbdFKm0/5mZmYDxi1/MzOzHDy2v5mZ2YAZqn7d77S/mZnZoHHL38zMLIdeju2/sLjyNzMzy6EP3ujryt8SWy4xqv1GJXLFCzPab1Qyi6p6/9w2WH/PokPIZcY9FxcdQm7LrrFN0SHkNndoXtEh2AKq3l8jMzOzAvX6Of+FwZW/mZlZDkOq/j1/9/Y3MzMbMG75m5mZ5eAOf2ZmZgOmH+75O+1vZmY2YNzyNzMzy6Efhvd15W9mZpZDP4zw57S/mZnZgHHL38zMLAf39jczMxsw/XDP32l/MzOzAeOWv5mZWQ798Jy/K38zM7Mc+uGev9P+ZmZmA8YtfzMzsxz6ocOfK38zM7Mc+uGev9P+ZmZmA8YtfzMzsxz6oeXvyt/MzCyH6IN7/k77m5mZDRi3/M3MzHJw2t/MzGzA9EPl77S/mZnZgHHL38zMLAcP75uTpN0khaT10vnRkqal09tIel7SnZLulXRSm7JWk3SVpLskzZB0taQl0303zmx3tKQzJC0i6VRJ0yTdLel2SWMk/VHSFEkPS3oqnZ6SxvZQum1t2alpmedIelnSspnj/CA9t1VaxDwvLWd6GvcRkhapO/8pmc9H03UvtijzLknnZ+YnSLowM7+cpL9IGtPq+zQzs84MqXufovS65T8euAnYBzi+wfobI2JnSSOBOyVdHhE3NynrBOA3EfEDAEmbRMQrkg4DfiRpa+AdwOeAscDe6fwmETEkaQ3gpYj4YLr/AcDYiDi4dgBJAOMi4ukGx58J7AL8X1qBjwMebXP+cyJi07TstwE/B5YHvpo9/zZlvEHS+iQXcFtLWjoiXgLOBP5F0kcj4rfp93RWRMzqtFwzM+tvPWv5S1oG2BI4kKTybyoi5gBTgFEtNlsdmJ3ZZ2r632uAx4H9gZOB4yPiuXT7xyNiKN1udrp8uM4nuaAA2Aa4GZjb6c4R8SQwAThY6VXGMOwLnAdcB3wyLTeAfwdOkTQW2A44sdHOaZZgsqTJ0174yzBDMDMbLENd/BSll2n/XYFrIuJ+4FlJmzfbUNKKwDrADS3KOx34H0nXSzpW0jsy6w4DvgmsGhHnpcsuAj6RptO/J2mzDuO+PpOGPzyz/AFg1TTW8cAFHZb3hoh4kOT/g7eli7aqS/u/q00RewMXklyIjM+UOxW4FvgdcEhEvNbk+BMjYmxEjN1o2XaHMjMzcOWfV7aCvIBMZZWxlaSpwBPAVRHxRLPCIuJa4J0kae71SG4TrJquewz4PfDjzPazgfcAXyb5zn8nabsO4h4XEZumn5Pr1l1GksX4IHBjB2U1km3135g51qYR0bQ5Lun9wFMR8VeSSn7z9EKk5nTg0Yi4fphxmZlZn+rJPX9JKwPbAhtJCmAESYfJH9VtWrvnvy5wU3rPf0qzciPiWZL75j+XdBWwNXBpuvotF1YR8Srwa+DXkv5Gko343QKc2gXAHcD/pv0Icu0s6Z3APOBJYP2cxx4PrCfpoXR+OWB34KfpfNEXlmZmfcm9/Tu3B3BuRKwdEaMjYk1gFrBGo43TWwPfBr7UrEBJ20paKp1eFngX8HCL7Tev3RpIO+htAvx1mOdTi/Nh4FjeehHTVpqlOAM4Lb1Pn2ffRYA9STovjo6I0SSdDxtlU8zMrIvc279z44Hv1C27FPjPFvucARwpaUyTnurvA06TNJfkIuanEXF7i/LeBpwpaYl0/k/AaR3Efr2keen01IjYP7syIn7SQRk1IyVNARYj6Rx4HvD9zPqt0vU134iIS4ClJM3OLP8+SUo/+3TBDcAGklaPiMdzxGRmZjn0Q0pVORud1qcOHb1PpX4IV7wwo+gQcltU1RtTa5FhP4hSjBn3XFx0CLktu8Y2RYeQ29yhee03Kpm5rz3atR/zd9b+dNf+Xh7z1/8r5B9Z9f4amZmZFahSLaUmSl/5S/oscGjd4psj4qAi4mkn7dzYqBPhdhHxTK/jMTOz7hrqg+q/9JV/RJwNnF10HJ1KK/hNi47DzMysmdJX/mZmZmXSDx3+XPmbmZnlUP2kf4/f6mdmZmbFc8vfzMwsB6f9zczMBkyRI/N1i9P+ZmZmA8YtfzMzsxz8nL+ZmdmAqX7V77S/mZnZwHHL38zMLAf39jczMxsw/XDP32l/MzOzAeOWv5mZWQ7Vb/e78jczM8ulH+75O+1vZmY2YFz5m5mZ5TBEdO3TCUk7SrpP0kxJxzRYf4SkGZKmSvqdpLXblenK38zMLIfo4qcdSSOA04GdgA2A8ZI2qNvsTmBsRGwCXAJ8t125vudvAHx9u2eKDiGX3141sugQcnvh9ZeLDiG3JUYsXnQIuSy7xjZFh5DbC7MnFR1CbquN2aHoEAbJB4CZEfEggKQLgF2AGbUNIuL6zPa3AZ9uV6hb/mZmZjkMdfEjaYKkyZnPhLrDjQIeycwRt7YHAAAgAElEQVTPTpc1cyDw63bn4Ja/mZlZDtHFh/0iYiIwscUmjV4g3DAASZ8GxgIfaXdcV/5mZmblNRtYMzO/BvBY/UaSPgocC3wkIl5tV6grfzMzsxx6/Jz/7cA6ksYAjwL7APtmN5C0GfATYMeIeLKTQl35m5mZ5dDLsf0jYq6kg4FrgRHAWRExXdIJwOSIuBI4EVgGuFgSwMMR8clW5bryNzMzK7GIuBq4um7ZVzLTH81bpit/MzOzHDy2v5mZ2YDxK33NzMysctzyNzMzy6Ef3urnyt/MzCyHbg7yUxSn/c3MzAaMW/5mZmY5OO1vZmY2YJz2NzMzs8pxy9/MzCwHp/3NzMwGzFA47W9mZmYV45a/mZlZDtVv97vyNzMzy8Vj+5uZmVnluOVvZmaWQz885+/K38zMLId+eNTPaX8zM7MB0xeVv6TdJIWk9dL50ZKmpdPbSHpe0p2S7pV0Uma/AySd1qC8hyStkk6HpO9l1h0p6fh0+nhJj0qakvms0CTGbBz3SbpB0s6Z9Q3LSve7qkmZq0p6XdLnMst+LunfM/MflDRVkrM8ZmZdMER07VOUvqj8gfHATcA+TdbfGBGbAZsBO0vaMkfZrwKfql0MNHByRGya+fy9RVk3RsRmEfEe4BDgNEnbDbMsgD2B20jOv+Zw4Kj0wmAR4DTgPyJibpuyzMysA9HF/xWl8pW/pGWALYEDaV75AxARc4ApwKgch5gLTCSpVLsmIqYAJwAHL0Ax44EvAmtIGpWW+zfgJOC7wOeBqRFxU6OdJU2QNFnS5LPvnb0AYZiZWZVUvvIHdgWuiYj7gWclbd5sQ0krAusAN+Q8xunAfpKWb7Du8Eya/vqc5d4BrDecsiStCbw9Iv4EXATsnVl9BrABcBRwdLMyImJiRIyNiLGfXW+NnKGbmQ2moS5+itIPlf944IJ0+gLmT4HXbCVpKvAEcFVEPJHnABHxD+BcklR9vWyqflyecgEtQFn7kFT6UHfeETEE/AT4dUQ8kzMmMzNrISK69ilKpTuBSVoZ2BbYSFIAI0hGXvxR3aY3RsTOktYFbpJ0eZp2z+MUkpb62Qsad8ZmwD3D3Hc8sJqk/dL5d0haJyIeSOeLvrA0M7OSqnrLfw/g3IhYOyJGR8SawCygYQ47vTXwbeBLeQ8UEc+StLQPXIB43yBpE+C/SG4p5N33PcDSETEqPe/RJOfVss+DmZktOPf2L9544PK6ZZcC/9linzOArSWNSecPkDQ782l18/t7QH2v/+x9+imSRrfYf6vao34klf4hEfG7DsraLhsjcCqNz7vRLQ8zM+uifrjnryLvOVh5/OPAj1Xqh/Chq/5RdAi5vfD6y0WHkNsSIxYvOoRcHnnhqaJDyO2F2ZOKDiG31cbsUHQIuT37wgP1fayGbee1/rlrfy+vevhXXYsrj6q3/M3MzCynSnf4KyNJOwD/Xbd4VkTsVkQ8ZmbWXf3wSl9X/l0WEdcC1xYdh5mZLRz9cLvcaX8zM7MB45a/mZlZDv0wgIorfzMzsxyKfCFPtzjtb2ZmNmDc8jczM8vBvf3NzMwGjHv7m5mZWeW45W9mZpaD0/5mZmYDxr39zczMrHLc8jczM8thqA86/LnyNzMzy6H6Vb/T/mZmZgPHLX8zM7Mc3NvfzMxswPRD5e+0v5mZ2YBxy9/MzCyHfhje15W/AfDkrdVKAs2Z91rRIeQ2QtX6jqto7tC8okPIbbUxOxQdQm5/m3Vt0SEUyml/MzMzqxy3/M3MzHLoh+F9XfmbmZnl0A/3/J32NzMzGzBu+ZuZmeXQDx3+XPmbmZnl4LS/mZmZVY5b/mZmZjk47W9mZjZg+uFRP6f9zczMBoxb/mZmZjkM9UGHP1f+ZmZmOTjtb2ZmZguVpB0l3SdppqRjGqxfQtKF6fo/ShrdrkxX/mZmZjkMRXTt046kEcDpwE7ABsB4SRvUbXYg8FxEvBs4GfjvduW68jczM8shuvi/DnwAmBkRD0bEa8AFwC512+wC/G86fQmwnSS1KtSVv5mZWUEkTZA0OfOZULfJKOCRzPzsdFnDbSJiLvA8sHKr47rDn5mZWQ7d7O0fEROBiS02adSCrw+gk23m48rfzMwshx739p8NrJmZXwN4rMk2syUtCiwPPNuqUKf9zczMyut2YB1JYyQtDuwDXFm3zZXAv6TTewC/jzZvH3LL38zMLIdeDvITEXMlHQxcC4wAzoqI6ZJOACZHxJXA/wDnSZpJ0uLfp125rvzNzMxy6PUgPxFxNXB13bKvZKZfAfbMU6bT/mZmZgPGLX8zM7McIoaKDmGBufI3MzPLYWgQxvaX9GKLdXdJOj8zf7qkKZJmSJqTTk+RtIekcyTNyiy7pYNj/0LSrXXLjpd0ZDqdLfMuSdtltltM0nckPSBpmqQ/SdopXfeQpLslTZX0B0lr1x1jN0khab3MstF15zRF0ucy06+lZU6R9J0m53OApKck3ZnGda2kLTLrG35H6X6nNSlzszTWHdJ5Sbqpdq7psr0kXdPu+zYzs8Ew7Ja/pPVJLh62lrR0RLwUEQel60YDV0XEppntdwaOiohLOix/BWBz4EVJYyJiVpNNj4qISySNIxkoYZ10+deB1YGNIuJVSasBH8nsNy4inpb0NeA44N8y68YDN5H0mDw+s/wv2XNK/SSN96FamW1O7cKIODjdZxxwmaRxEXFP9nzalJFVi3U8cG1EhKTPAxdLup6kd+g3gR1zlGlmZk20eYquEhakw9++wHnAdcAnuxPOfHYHfkkyjnHbxxaAW0mHPJS0FEll/oWIeBUgIv4WERe12i/ddxlgS5IXJXRy3GGLiOtJLljqh3PsSDp28x7AAcD2kpZMy51G8t19CfgqcG5E/KUbMZuZDbohomufoixI5b83cCFwPkmrsxMnZlLaP2uz7fi07E7L3xG4Ip1+N/BwRPwj534AuwLXRMT9wLOSNs+se1cm/tM7KLsTdwDrZebzfEdbArPSin0S8PHMuq+RXKDtBHy30c7ZMaUveG72sE/AzMyqZVhpf0nvB56KiL9Kmg2cJWnFiHiuza4dpbTTFP27gZvSNPZcSRulLdp6J0r6LvA24J9ynMb16XGeJEn714wHTkmnL0jn70jnG6X9F1T9mMx50v7jSWIk/e9ngMsAIuIlSRcCL9ayH/WyY0rP3GCH6uexzMx6YJDT/uOB9dL73H8BliNJ03fL3sCKwKz0GKNpnoI/iuRC4TjefKXhTGAtScu2OMY4YG1gOnACgKSVgW2Bn6bHPQrYO02vLyybAfe03aqOknc87w58JY31h8BOdec8lH7MzKxLhiK69ilK7spf0iIkIwltEhGjI2I0ybuEO039d2I8sGOm/PfR4v57JA9d/gBYRNIOEfEyyXCHpyoZCxlJq0v6dN1+c4DDgP0lrURy//zciFg7PfaawCzgw108tzdI+gjJ/f4zh7H7R4G7ImLNNNa1gUtJbluYmZk11Unlv5Sk2bUPSWX5aEQ8mtnmBmADSau3KSt7P3tKrWLOSp8UWAu4rbYs7en/D0kfbFZw+hKDbwBHp4uOA54CZkiaRnJf/6kG+z1O0q/gIJKLjsvrNrmU5N55t+ydnvv9wH8Cu2d6+kPz7+iAuv8fjupBrGZmVie6+L+iqB/uXdiCq9o9/+2ffLLoEHKr4qhgiy5SrXHAZj3/RNEh5LbcEksVHUJuf5t1bdEh5LbYKu/s2u3b1ZZfr2t/L//2/L0L87ZyU9X6l21mZlawfhjhr9DKX9JngUPrFt9cGyyoqvr1vMzMrD8UWvlHxNnA2UXGsDD063mZmVl/POrntL+ZmVkORT6i1y0LMsKfmZmZVZBb/mZmZjk47W9mZjZg+qG3v9P+ZmZmA8YtfzMzsxyc9jczMxsw7u1vZmZmleOWv5mZWQ5FvpCnW1z5m5mZ5eC0v5mZmVWOW/5mZmY5uLe/mZnZgOmHe/5O+5uZmQ0Yt/zNzMxycNrfzMxswPRD5e+0v5mZ2YBxy9/MzCyH6rf7Qf2QvrBykzQhIiYWHUenqhYvVC/mqsULjrkXqhZvlTntb70woegAcqpavFC9mKsWLzjmXqhavJXlyt/MzGzAuPI3MzMbMK78rReqdg+vavFC9WKuWrzgmHuhavFWljv8mZmZDRi3/M3MzAaMK38zM7MB48rfzMxswLjyt66StFfRMXSTpMWLjsF6T9LaRceQhyT/Lbdc/IOxbttf0jWS3ll0IJ2S9F9Nli8PXNfjcNqSdLWk0UXHkYekH0larug4cvidpGMkVWUI9DskfajoIPKq4m+5X7jyt66KiJ2BM4BfSfovSatIWqn2KTq+JraS9M3sAklvB24Afl9MSC2dA1wn6VhJixUdTIceAv4sad+iA+nQZsBqJDFvXXQwHfgc8ANJZ0pasehgcjiH6v2W+4If9bOFQtJ7SSrP53jzPRgREaXLCEhaErgEuD8ijpC0DvBr4MSI+Emx0TUmaWngK8COwHnAUG1dRHy/qLhakTQK+D6wCvBj5o/5sqLiakXS+4DfAbNJ4hXJ73iTQgNrQJKAzwNHkvx+s9/vIUXF1U4Vf8v9oCopLasISUsAxwF7APtFxFUFh9RWRLwiaTfgAkkXAB8CDouIywsOrZXXgZeAJYBlyfzBLKuIeFTSr4BvAp/gzZgDKF3lL2lb4AfAT4HTKf93vBLwfuAp4M+UP96ayv2W+4Erf+u2qcClwOYRMafoYDoh6Yh08k/A0cCNwJja8rK1PiTtSNKCvpLke3654JDakrQhSWv/MeADEfF4wSG1lF4EjgL2jYi7i46nHUmfB44CTgQOjIqkdKv4W+4Xrvyt23aLiBn1C9PU+ici4uICYmpn2cz0qQ2Wlc2xwJ4RMb3oQHK4BDg0IkrXgbKJ30XEmY1WSFotIv7W64Da2Ar4UEQ8WXQgOVXxt9wXfM/fFhpJI4DtgfHADsCNEbFHsVH1p/S+6W7A+Ij456LjqSdpiYh4tcHyLUla1wcVEFbH0ic/dgf2BdaPiFEFh9SWpHeR/NvbJyI2KjqeTpX9t9wv3Nvfuk7S1pLOIOnh/a8kFwBjylrxS7ooM/3fdetK21KVtLikXdP4Hwe2I3nSonSyFb+kTSV9V9JDwDeAewsLrAVJIyXtLekXwDSS9PQ3gDWLjaw5SatLOkzSn4DpwAiSC4BSq9JvuV+45W9dJWk28DDJ/d0rIuIFSbMiYkzBoTUl6c6I2CydviMiNm+0riwkfYw3synXAxcCP4yI0UXG1YqkdYF9SOJ+hiTmIyOilIPpSPoZsDXJOA8XkDzyObOsv2NJ/0by3a4BXJR+flHWeGuq+FvuF77nb912KbArsDcwL201lf0Ks1V8ZYz9WpJOiR+OiFkAkn5QbEht3UsS8yciYiaApMOLDamljUgeU70HuDci5kkq42+h5nTgVpJbKJMBSh5vTRV/y33BaX/rqog4FBhNkiIdB9wPrCppL0nLFBlbC0tJ2ix9pntkOr15bb7o4Bp4H3Ab8FtJv5F0IEl6t8x2B54Ark8HotmO5Jn5UoqI9wJ7AcuRfM83Asumgz+V0TtIMhTfl3SfpK8DVRg0p4q/5b7gtL8tVOmoXTuSpPa2j4hVCg7pLSRNokULPyLG9S6afNIOc+NJKtcpwOURMbHYqJpLO3PtShLztsD/ksRc2r4VAJLGksS8JzA7IrYoOKSmJK3Bm7dYliL5fv+z2Kjaq9pvuepc+VvPSLooIvrqxT9lkb7Y5WPAFyNi+6Lj6UQ63POewN4RsW3R8XQi/Z4PjYiTi46lE5LeA5wSETsVHUunqvhbriKn/a2X/qnoABqRdHRmes+6dd/qfUT5RcRQRFwLrFd0LJ2KiGfT4ZPfXXQsnYqIIaDMfRXmExH3ARsWHUceVfwtV5Erf7MkRVrz5bp1O/YyEKuE0vZVaKJq8VoPuLe/dZWkzZutorwdkNRkutG8WdXulVYtXusBV/7Wbd9rsa6Ug7kw/x/H+j+UpfvDKemHNI5LwAo9DqcjmfcnvGUVULqnQCS9QPPvuHRPgEj6Jc3jXbnH4XSsir/lfuHK37qqzD3jW3ivpH+Q/mFPp0nnlywurKYmD3NdkVq9K6F0z3VHRJnf7dDIScNcV7Qq/pb7gnv7W1dJOjoivptO75l9kY+kb1XhkaMqk7RoRMwtOo6qk7RtRPw+nR5TG4Amnf9URJTqFcSSlouIfzRZt1ZEPNzrmBaUf8sLlzv8WbdVrvOcpFMk7SHpHUXH0glJN2Wmz6tb/aceh9ORCr4/IdtavrRu3XG9DKRDk2oTkn5Xt+6K3obSuSr+lvuFK3/rtip2npsJfAq4RdJDkn4u6aB0pL8y/htZOjNd/xhXWb/jdTLTH6tbt2ovA+lQ1X7H2ZhWarGubKr4W+4Lvudv3VapznMAEXEacBokb0UDtgS2IHme+20kQ7yWSdXeRQDVi7lqv+OqxVtTtd9F33Dlb91Wtc5zAEgSsDFJpb8lsAFJRqA+FVkGK0jajSRzt4KkT6XLBSxfXFgtLSVpM5KYR6bToqS954F3SrqSJL7aNOl8Gd+U97b0iQplpknny5hZqanib7kvuMOfDTxJvyFp3U8hecnIbRFxT7FRNSfp7FbrI+KzvYqlU5Kub7W+bE+JSPpIq/UR8YdexdIJSV9ttT4ivtarWPKo4m+5X7jyt4VC0sa8OTznjIiYXmQ8rUj6CfBe4GWSyv9W4NaIeLrQwKwUJK0KEBFPFR2LWbe48reukrQ88AtgLeAukvTdxsDDwC7NHkcqA0nLkbx/YIv0v6sC0yLiXwoNrIH0hS0TePMC6x5gYkTcX1xUrUlaGdiX+WP+eUQ8W1xUjaW3gb4CfIHkN7wIMBf4YUScUGRszUgaBxzM/N/vaRExqbCgOlDF33I/KGNPZqu2r5MMzvHuiNgtInYl6el9O/DNQiNr71WS1v+cdHoNoNlwxYWR9CGSR7teBCYCZwIvAZMklfXlSesD00je334/8ADwfmCapDK+wOUw4MPA+yNi5YhYEfggsKWk0r3YR9I/A2cBV5FcYO0HXA2cJenjRcbWShV/y/3CLX/rKkkzgE3qB+eQtChwd0SsX0xkzUk6maS1vw7Jff9bap+I+HuRsTUi6dfAf9e36NL71MeU8fWtki4BLoqIi+qW7w7sGxG7FxNZY5LuBD5Wf+snvQVwXURsVkxkjUmaRPKq4bvqlm9Ckq1o2YehKFX8LfcLV/7WVZKmRMSmedcVSdIhJJX9nRExr8V2G5ah74Kk+yNi3Sbr7ouI9/Q6pnZaxVXGmCVNi4iN8q4riqR7I6JhBqXVuqJV8bfcL/yon3XbkpnHuLIELFFAPG1FxKkdbnoe5bgN8EKLdS/1LIp8WsVVxphfG+a6olTt+62p4m+5L7jyt257HPh+k3VP9DKQhaAsI46tKanRBYuAUb0OpkPZZ8+zyvocem28inplHa/iXZmxCLIEvLPXweRQxd9yX3Dlb13V6fPakj4WEb9Z2PF0WVnukR3VYl1Z34R2Js3f7PfTXgbSiYgY0cl2klaMiOcWdjwd2KXFujK/1a+Kv+W+4Hv+VghJd0REGVLoHatazJJ+GBFfKDqOPCR9OSK+XXQcnargb+LSsnWu7EQVf8tl50f9rChlSaHnUcZ7va1sWXQAw7Bn0QHkVLXfcZlvAbRSxd9yqbnyt6KUJuUk6eDMdP2bxd4QEX7ueOGrWmVamt9xh6oWry0krvzN4P9lpsv4Ip9B4srJrAdc+VtRHio6gCaq1vJspYrnUrWYHW9vVDXu0nLlb10l6ejM9J51675Vm46IT1EeK0jaLR1tbjlJn8p+ig4uD0lrZ2Z/UFggdXIM1XrxQg2kQ5JWavXJbLpdYUFmpO+laLZurczsl3oQTseyfxPaKM1vuV+4t791Vbb3c31P6LL2jG7zWtGIiP/XYn0h0jHRRwE3RMST6TCuxwBbRcSaxUb3VulwuX8CvlTGIZPrSRoCZpO8zAfmb3lGRJSq41zdv7vfRcR2jdaVTZlj63d+zt+6TU2mG82XQtXeGS7pRGBnkvcQfEnSVcB/AN9i/v4LZfI+4BDgT5K+HhFl71vxQ2Ab4GbgfOCmKHdLKftva6UW68pmhKQVaRJjGd/42C9c+Vu3RZPpRvOlIWkjkgFHNiSJcwZwUkTcXWhgjf0zsFlEvJL+4XyM5GVKDxQcV1MRMQScIuk64FZJPyL5npWsjqZp6yJExKHpa323AT4D/DCN/ccRMavQ4Bqr5L87ktf4/pnGlX9Q3UcTS8+Vv3VbbVhUASMzQ6SWdVhUJO1CMgrat4HvkcT6PuAySUdGxC+KjK+BORHxCkBEPJe+AKW0FX+NpANJbk0cC5xe8pY0aXzXp7cs9iF5XfUDJKMVlk1t+GQx/1DKZR0+uWZG2d6QOCh8z98GnqS7gF0i4qG65aOBX0TEewsIqylJfwduyCzaOjsfEZ/seVBtSLqF5AmPIyKi9O94kLQ0yZC5e5NUnpcBF0bEI4UG1oSkr7ZaHxFf61UseUi605V/MVz5W09IWgE4KCK+WXQs9STNiIgN8q4rSvqu86Yi4g+9iqVTkr4QET8sOo5OSXqJpJV/PjCTutR5RFxWRFz9RtKEiJhYdByDyGl/6ypJawL/BbwDuAL4OUm6dP90uoxel7RWRDycXZg+Nje3yT5FujMiGr1xrv6xrjL5LEknuqq4mKTCXy/9ZAVJJqA0JH2lxeqIiK/3LJh8Pg9MBI/f32uu/K3bzgX+AFwK7AjcBkwHNi5xuverwG/TZ47/TPLH/f0k96dL9Vx0ahLQ8LEukgsuPzq1gCLigKJjyOmlBsuWBg4EVia5AC+jbEc/j9/fQ678rdtWiojj0+lrJf0NeH9EvFpgTC1FxBWSZgFfBL5A8gdpGrBXRNxVaHCNVfGxrk0ynT+zStnbX9IpEXFYOn1oRPwgs+6csl0cRMT3atOSlgUOJcm2XEDSibWsfN+5IK78revqntt9Algq7UBV2ud200p+/1bblCgtWcXHuu6uWMeurTPT/8L8I8xt0uNYOpKOPHgEsB/wv8DmEfFcsVG1tZ6kqSR/L96VTsObF4Wl/K77gSt/67bleetzu3ek/636c7tlSUtW9bGuKmk1WFXppAM/fYrk/vnGEfFiwSF1av2iAxhUrvytqyJidNExDIAzgWUbTAP8tPfhdKQUY/bnsEiawVokM127CBhRXFhNfRF4FTgOODYZnwgo6W2Vmoj4a6PlkrYE9gUO6m1Eg8OVv3WVpPrOZgE8Xdbno6uorM9st7G6pFObrYyIQ3oZTAfqM1h3ZNaV7tZKRFT+JW2SNiWp8PcCZlGyJyr6jSt/67ZGnYtWkrQ4MD4ipvQ6oC4qRfq3VSUKpaxIASYXHUBOH2nWKi2jujcNvkVZ+9pIWpdk9MTxwDPAhSTjz4wrNLAB4MrfuqrZP1pJY4FTmb8jVSlI2isiLupg07K8VvTPmemvkTyqWGoR8b/N1tW9hrgsLqdaj0zWHlGt2hj59wI3Ap+IiJkAkg4vNqTB4BH+rGfK+vrO9K14iwL/EREPFh1PHlUaHrVKryGu0vfajqRREfFo0XE0Imk3kpb/FsA1JI8m/jQixhQa2ABw5W89IWk14OqIeF/RsTQiaVeSF/v8HPgxMFRbV9aUKZT3gqpe3WuI3w1kX0P8k9qLispC0pMkFVFDJb210pCkhyOirCM/Am+8S2FXkvT/tiSPKl4eEdcVGlgfc9rfukrSD3lrh6iVSK7sD+19RJ3JDPRzA8moaLVzKHPKtEqq9hriOcx/e6XKStFXpZWIeAn4GfCztP/CniRZIVf+C4krf+u2+o5dQdKR54iIeLKAeNqStATJI1J7APtFxFUFh9SSpBd48+JkqbrXJpf1sa6qvYb4mVb9FCqmUundiHhW0oV4zIqFypW/ddu4sg192oGpJO8i2Dwi5hQdTAdWiojXiw4ip3dJujIzPzo7X8LXEL9WdAB5NMm4QXJBuEKPw+lYixeBfYbkjYq2kLjyt26r4nCcu0XEjPqFkpYk6YVctgFq/ki1eqID7FI3X+bx5gH2kbR8RDwPIGkcyT3pvwKnRUTZLg5aPUpZ5scsm70IbJMSvwisL7jDn3WVpHtJOu00vM8YEXc0Wl4WkkYA25Ocww7AjRGxR7FRza+feqKXlaQ/klwUPpYOPvNbkg6hmwCvR8S/FhpgDpLWLuuYBZLuioj3Zub/BqxV5heB9Qu3/K3bRpG06po9b7xtb8PpjKStSUYX+2fgTyTj+I+JiJcLDayxVTPj+b9FRHy/l8F0Qv+/vfsPvryq6zj+fGE7usryS2lxUEBDx3YRkGAKXDEgNA0cEGVnGaqpqaYZJdgZi6RJymqyNPyxFgaBU2ZJE67aUEpNi+iqlRNOu+i27LQLIlhQyw9/Rcu++uN87nL57vfXwufec+79vh4zd/bzA2be8+W793DOeZ/3W9rC/g2JHgQ2Ae9pLdsfWG77vu76UuBG238g6SDKiYXmzHeUEmjqKOWwSWwENg0y+EffdthucoCfi6R7gXsoR/x+2fajknY2OvBDqS1/MBOQxT3kvFmeHUHpmLcB+PnxhrOg4Z/t2cDbAWzvHaqb34wZRymv7GpXDI5S/mzN2BYwzY3AmpbBP6LsN14ArAUel/RJ2s6Qvt/2O2sHcSDmWHa+G7hD0h3jjmcRNkn6K+B+4HDgHwEkPZ82kwEn7SglkEZgNU18M4hozpVzveg6dTXH9uXAccA1wFnAdsrS+sWSDq4Z2xzam3o+PS1+D11OaSyzC1gzdLriKODXagU1jycdpQRaP0oJgKTXStovp0bSJZLOrRHTUpGEv+hVlzB3MWXv8dO2t0o6D7iKso/afKKapGXA6yhlR19j+3mVQ3oSSUfM3Avt9kgvpDRP+ok6kc1tlm6PUGbUlwLfsn3ZmEOal6Q/At4+yPZvnaSHKAWqBs4cvqrLOugAAAoOSURBVG/wKCUAkr5EOVHzwIznR1Eq/J1eJ7Lpl2X/6NsNlOSifwY+IOlu4HTgV21/ompkiyDpSADbnwI+JWl55ZD2Mxj4u06Jr6ckKv44ZfviQxVDm8/Mo32D4k+3AdeNPZqF7QK+LOlq239RO5hFmLSjlAPPnjnwA9j+5iDpL0YjM//olaQ7gZd3iVHPomR0H9/ymV2VDK6rgbdSlqAF7AE2tLi33i2HDo4ibqK0Qd2Q/dN+STqashX0PPbv95Be8z2QtB1YZXvPjOfLgK/afkmdyKZfZv7Rt/+1vRegSz7a3vLA37mCcrTvNNs7ASS9GLhW0nrb760a3f4+Q2mDumYo3lbaDc+qO5r4sO0bZjy/DHiG7ffViWxutr8h6Rbgd4DzeWLwNyUfoBmzHKXc9wrYO3yWvjEfB66X9Nauvv9gC+sDNPYznjaZ+UevJH0H2DG4BX6gux/UnW+uAmCXbX6u7QdnPD8SuLW1PAVJr6DkI7wJ+A9K97l32D62amDzkLSVUj75sRnPnwn8S2u/F5JWU2b79wHrbd9fOaR5SZrtv72AFwBX2X79mENaFEnfB/w28HOU0x8Ax1C2D399AstYT4wM/tGrOb6E9mmx0pikrbZPONB3LehOUKwDLqKc8d5ou7k9dElbbL/8QN/VIulrwBW2P1M7lgPVVSS8hJJ4uxO42fYH60Y1vy635vjudseE9NiYaFn2j17NNbh3g9QlwFvGG9GizHduu8Uz3fvY3gxslvRLwLmUWgXNDf4Aklba/s+Zz2rFs4CTh0vMSnouJYP+HtvNtfqV9FLKatA6SiLlTZTJ3VlVA1ukbrDfMrjv8lp+xXaO+41Ii+drY0pIOlnS70vaRVna21Y5pLmcJOmRWT6PAk3NSAEkXTp0/Uoolee6WWqrvRPeDdwi6dWSVnSfHwX+BnhP3dBmdbOkE2BfYZ+tlEp5H5F0RdXIZrcNOIdybG6N7Q3A45VjWpCksyVtl/QtSX8uaZWkLwPvomy7xIhk2T96NccM5G0t70dPGkn/avuUmdez3bdE0usoteZPoCSn3Qm8y/bfVQ1sFpLutL26u74KeJntn5K0AtjcYI7ChZS/d2cAn6bkgfyJ7RdVDWwBXb7NeuCLlNoaf0bZ6286gXUaZNk/+raNkol+vu0dAJLW1w1p6miO69num9EN8s0N9HMYTjQ7B7geoOv7sHf2f6Ue2xuBjV2m/AWUAXWlpGspeSC3Vg1wbrZ9W3f9CUkPZOAfjyz7R98uonTm2iTpeknn0PCANKFmdseb610zujr5g+vfm/GuxYHp65Iu62bUp1Bm04PEtGVVI5uH7W/b/qjt8yiZ/l+hrLa06jBJbxx8KGU3hu9jRLLsHyMxNANZR+mK9qe0PQOZGEPHKYePUtLdv9h2c5XRJN0xODI5y1bFvnetkPT9wDuB5wN/OPi9lXQW8EO2W8xTmDiSPjzPa9tuuSPhRMvgHyMn6QjgzcDaSWv326JuG+XzwG6evDwNNHucciLzFBYiaUNrfQkiFiN7/tGrrqTvL1LO7G4Bbuhq0f9x94mn72jg/cDLgH8DvgBsBr44s+FPQ57dFSc6CFg+1OhHQHP9Ew5Ak50qJ0VX+XFOtq8ZVyxLTWb+0StJN1Fmo5+jZO/e3bXMjZ51jX1OpWR4n959HrK9qmpgs5C0iZKPMMj/GP7imZjz6DNN8qpFCyRdPc9rt9hbY1pk5h99WzWo1ibpBkp3vxiN5cAhwKHd5z6GCqU05krg64MyuZJ+mpIcugv4jXphRU22f3Oud5JOG2csS00G/+jbvj1o23tKw7zok6TrgNXAo8A/UZb9r7G9u2pg8/sQ8GMAks4Efhe4DDiZUpHwTfVCe1ryC94jSat4ok7Iw5SVrRiBDP7Rt5MkPdJdi7K/+whPNPY5pF5oU+MY4JnAXcA3gHuBh6pGtLBnDOUjrAWus30zpZLeVyrGdcAkHTuUVJkz6U9T1w9kXffZAxwLnGp7V824pl32/CMmkMqSymrKfv8ZlKp5/0NJ+ptvH7WKrqvfyd1q0DbgF2zfPnjXYvMkSadTkitvt/1fkk6knJl/le0X1o1uOkj6AmXL6mPAx2zfJWln65UJp0GK/ESvJJ09dP2iGe9StKMnLrYCf0upmreZcua/1eTKvwQ+K+mTwHcpCaFIOp6yvNsUSe8GbqTkJdzSJab9PWWb5SU1Y5syDwArgJXAkd2zzEjHIDP/6NW0nuduSdfB7wzKMbP/ozvm1/25xXZz5WcBJP0IpWjOrba/3T17KXCw7aYaEkn6KnCK7e9JOpySTHmi7bsqhzZ1JB1K+Z+sdZQjwocBr7WdZOERyp5/9G0i685PmOOAvwbWD7LnJ4HtL83ybHuNWBbhu7a/B2B7t6R/z8A/GrYfpqyy3NhVVlwLvE/SC7O9MjqZ+UevMvOPaSDpIeD2oUdnDt/bfsPYg1pihhMrU0mxfxn8o1dDX5oCXsUTX5gC1tg+vFZsEYsl6dXzvbf92XHFEpk4jEIG/+hVvjQjom8Z/PuXPf/o1fDgLunI7tkD9SKKOHCStjB71rmAvbZPGnNIEb3K4B+96s6fv4NSvU3AQZL2ABtSpzsmyHmzPBPwAuCqMccSSRbuXc75R9+uANYAp9l+brfH/8PAK7tWtBHNs3334AMcDrwFuA34LUpthRgxScOT01RS7Fn2/KNXku4AzrX94IznR1LOd7+iTmQRi9fVHxjUmP9v4CbgbbaPrRrYlJH0edtruuuP2P7JoXfZ5x+hLPtH35bNHPih7PtLWlYjoIinYBulCuH5tncAZOVqJJ4zdL16xrss9Y9Qlv2jb489xXcRLbkI+CawSdL1ks4hg9EozLf0nGXpEcrMP/o23NVvmIBnjTuYiKfC9kZgo6TnABcA64GVkq4FNtq+tWqA0+MwSRdSJqKHDfX/EKXhT4xI9vwjIhZB0hHAm4G1ts9e6J+PhUn68Hzvbf/MuGJZajL4R0REFZLeaPvjteNYijL4R0REFcnorycJfxEREUtMZv4REVGFpO8AO2Z7Bdj2iWMOaclItn9ERNSyEzi/dhBLUQb/iIio5bGuhHKMWfb8IyKils1zvZC0cpyBLDXZ84+IiCZIOpRSXfES4AdtH105pKmVZf+IiKhG0nLgDZQB/xRgBaWq4u0145p2WfaPiIgqJH0U2A68BvggcByw2/ZttvfWjG3aZfCPiIhaTgB2A18Dttl+nDT0GYsM/hERUYXtk4CLgUOAf5D0OWCFpKPqRjb9kvAXERFNkHQqsI7SQOle22dUDmlqZfCPiIimSDoIuNz2e2vHMq0y+EdERHMk3WP7mNpxTKvs+UdERItUO4BplsE/IiJalGXpEUqRn4iIqELSo8w+yAtYPuZwlpTs+UdERCwxWfaPiIhYYjL4R0RELDEZ/CMiIpaYDP4RERFLzP8DYUP+2wfKGM0AAAAASUVORK5CYII=\n",
+      "text/plain": [
+       "<Figure size 504x504 with 2 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "# Correlation matrix\n",
+    "fig, ax = plt.subplots()\n",
+    "fig.set_size_inches(7,7)\n",
+    "corr = df.corr()\n",
+    "sns.heatmap(corr)\n",
+    "#display(fig)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Divide data into Train and Test"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 54,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict\n",
+    "df_train,df_test = train_test_split(df, shuffle=False)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 55,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "AIRLINE                51817\n",
+       "ORIGIN_AIRPORT         51817\n",
+       "DESTINATION_AIRPORT    51817\n",
+       "DEPARTURE_DELAY        51817\n",
+       "DAY_OF_WEEK            51817\n",
+       "WEATHER_DELAY          51817\n",
+       "SECURITY_DELAY         51817\n",
+       "AIR_SYSTEM_DELAY       51817\n",
+       "AIRLINE_DELAY          51817\n",
+       "LATE_AIRCRAFT_DELAY    51817\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 55,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "inputs = df_train.drop('DEPARTURE_DELAY',axis='columns')\n",
+    "target = df_train['DEPARTURE_DELAY']\n",
+    "df_test.count()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 56,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "AIRLINE                207265\n",
+       "ORIGIN_AIRPORT         207265\n",
+       "DESTINATION_AIRPORT    207265\n",
+       "DEPARTURE_DELAY        207265\n",
+       "DAY_OF_WEEK            207265\n",
+       "WEATHER_DELAY          207265\n",
+       "SECURITY_DELAY         207265\n",
+       "AIR_SYSTEM_DELAY       207265\n",
+       "AIRLINE_DELAY          207265\n",
+       "LATE_AIRCRAFT_DELAY    207265\n",
+       "dtype: int64"
+      ]
+     },
+     "execution_count": 56,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "inputs_test = df_test.drop('DEPARTURE_DELAY',axis='columns')\n",
+    "target_test = df_test['DEPARTURE_DELAY']\n",
+    "df.count()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Format Train data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 57,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.preprocessing import LabelEncoder\n",
+    "le_AIRLINE = LabelEncoder()\n",
+    "le_ORIGIN_AIRPORT = LabelEncoder()\n",
+    "le_DESTINATION_AIRPORT = LabelEncoder()\n",
+    "le_DAY_OF_WEEK = LabelEncoder()\n",
+    "le_WEATHER_DELAY = LabelEncoder()\n",
+    "le_SECURITY_DELAY = LabelEncoder()\n",
+    "le_AIR_SYSTEM_DELAY = LabelEncoder()\n",
+    "le_AIRLINE_DELAY = LabelEncoder()\n",
+    "le_LATE_AIRCRAFT_DELAY = LabelEncoder()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 58,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "inputs['AIRLINE_n'] = le_AIRLINE.fit_transform(inputs['AIRLINE'])\n",
+    "inputs['ORIGIN_AIRPORT_n'] = le_ORIGIN_AIRPORT.fit_transform(inputs['ORIGIN_AIRPORT'])\n",
+    "inputs['DESTINATION_AIRPORT_n'] = le_DESTINATION_AIRPORT.fit_transform(inputs['DESTINATION_AIRPORT'])\n",
+    "inputs['DAY_OF_WEEK_n'] = le_DAY_OF_WEEK.fit_transform(inputs['DAY_OF_WEEK'])\n",
+    "inputs['WEATHER_DELAY_n'] = le_DAY_OF_WEEK.fit_transform(inputs['WEATHER_DELAY'])\n",
+    "inputs['SECURITY_DELAY_n'] = le_DAY_OF_WEEK.fit_transform(inputs['SECURITY_DELAY'])\n",
+    "inputs['AIR_SYSTEM_DELAY_n'] = le_DAY_OF_WEEK.fit_transform(inputs['AIR_SYSTEM_DELAY'])\n",
+    "inputs['AIRLINE_DELAY_n'] = le_DAY_OF_WEEK.fit_transform(inputs['AIRLINE_DELAY'])\n",
+    "inputs['LATE_AIRCRAFT_DELAY_n'] = le_DAY_OF_WEEK.fit_transform(inputs['LATE_AIRCRAFT_DELAY'])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 59,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>AIRLINE</th>\n",
+       "      <th>ORIGIN_AIRPORT</th>\n",
+       "      <th>DESTINATION_AIRPORT</th>\n",
+       "      <th>DAY_OF_WEEK</th>\n",
+       "      <th>WEATHER_DELAY</th>\n",
+       "      <th>SECURITY_DELAY</th>\n",
+       "      <th>AIR_SYSTEM_DELAY</th>\n",
+       "      <th>AIRLINE_DELAY</th>\n",
+       "      <th>LATE_AIRCRAFT_DELAY</th>\n",
+       "      <th>AIRLINE_n</th>\n",
+       "      <th>ORIGIN_AIRPORT_n</th>\n",
+       "      <th>DESTINATION_AIRPORT_n</th>\n",
+       "      <th>DAY_OF_WEEK_n</th>\n",
+       "      <th>WEATHER_DELAY_n</th>\n",
+       "      <th>SECURITY_DELAY_n</th>\n",
+       "      <th>AIR_SYSTEM_DELAY_n</th>\n",
+       "      <th>AIRLINE_DELAY_n</th>\n",
+       "      <th>LATE_AIRCRAFT_DELAY_n</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>9</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSP</td>\n",
+       "      <td>CVG</td>\n",
+       "      <td>1</td>\n",
+       "      <td>218.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>11.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>224</td>\n",
+       "      <td>80</td>\n",
+       "      <td>0</td>\n",
+       "      <td>218</td>\n",
+       "      <td>0</td>\n",
+       "      <td>11</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>27</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSY</td>\n",
+       "      <td>LGA</td>\n",
+       "      <td>5</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>19.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>19</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>30</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSY</td>\n",
+       "      <td>LGA</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>19.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>19</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>31</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSY</td>\n",
+       "      <td>LGA</td>\n",
+       "      <td>2</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>136.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>136</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>34</th>\n",
+       "      <td>9E</td>\n",
+       "      <td>MSY</td>\n",
+       "      <td>LGA</td>\n",
+       "      <td>5</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>154.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>154</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "   AIRLINE ORIGIN_AIRPORT DESTINATION_AIRPORT  DAY_OF_WEEK  WEATHER_DELAY  \\\n",
+       "9       9E            MSP                 CVG            1          218.0   \n",
+       "27      9E            MSY                 LGA            5            0.0   \n",
+       "30      9E            MSY                 LGA            1            0.0   \n",
+       "31      9E            MSY                 LGA            2            0.0   \n",
+       "34      9E            MSY                 LGA            5            0.0   \n",
+       "\n",
+       "    SECURITY_DELAY  AIR_SYSTEM_DELAY  AIRLINE_DELAY  LATE_AIRCRAFT_DELAY  \\\n",
+       "9              0.0              11.0            0.0                  0.0   \n",
+       "27             0.0              19.0            0.0                  0.0   \n",
+       "30             0.0              19.0            0.0                  0.0   \n",
+       "31             0.0               0.0          136.0                  0.0   \n",
+       "34             0.0               0.0          154.0                  0.0   \n",
+       "\n",
+       "    AIRLINE_n  ORIGIN_AIRPORT_n  DESTINATION_AIRPORT_n  DAY_OF_WEEK_n  \\\n",
+       "9           0               224                     80              0   \n",
+       "27          0               225                    188              4   \n",
+       "30          0               225                    188              0   \n",
+       "31          0               225                    188              1   \n",
+       "34          0               225                    188              4   \n",
+       "\n",
+       "    WEATHER_DELAY_n  SECURITY_DELAY_n  AIR_SYSTEM_DELAY_n  AIRLINE_DELAY_n  \\\n",
+       "9               218                 0                  11                0   \n",
+       "27                0                 0                  19                0   \n",
+       "30                0                 0                  19                0   \n",
+       "31                0                 0                   0              136   \n",
+       "34                0                 0                   0              154   \n",
+       "\n",
+       "    LATE_AIRCRAFT_DELAY_n  \n",
+       "9                       0  \n",
+       "27                      0  \n",
+       "30                      0  \n",
+       "31                      0  \n",
+       "34                      0  "
+      ]
+     },
+     "execution_count": 59,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "inputs.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 60,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "inputs_n = inputs.drop(['AIRLINE', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT','DAY_OF_WEEK','SECURITY_DELAY','AIR_SYSTEM_DELAY','AIRLINE_DELAY','LATE_AIRCRAFT_DELAY'],axis='columns')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 61,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>WEATHER_DELAY</th>\n",
+       "      <th>AIRLINE_n</th>\n",
+       "      <th>ORIGIN_AIRPORT_n</th>\n",
+       "      <th>DESTINATION_AIRPORT_n</th>\n",
+       "      <th>DAY_OF_WEEK_n</th>\n",
+       "      <th>WEATHER_DELAY_n</th>\n",
+       "      <th>SECURITY_DELAY_n</th>\n",
+       "      <th>AIR_SYSTEM_DELAY_n</th>\n",
+       "      <th>AIRLINE_DELAY_n</th>\n",
+       "      <th>LATE_AIRCRAFT_DELAY_n</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>9</th>\n",
+       "      <td>218.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>224</td>\n",
+       "      <td>80</td>\n",
+       "      <td>0</td>\n",
+       "      <td>218</td>\n",
+       "      <td>0</td>\n",
+       "      <td>11</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>27</th>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>19</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>30</th>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>19</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>31</th>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>1</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>136</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>34</th>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>225</td>\n",
+       "      <td>188</td>\n",
+       "      <td>4</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>0</td>\n",
+       "      <td>154</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "    WEATHER_DELAY  AIRLINE_n  ORIGIN_AIRPORT_n  DESTINATION_AIRPORT_n  \\\n",
+       "9           218.0          0               224                     80   \n",
+       "27            0.0          0               225                    188   \n",
+       "30            0.0          0               225                    188   \n",
+       "31            0.0          0               225                    188   \n",
+       "34            0.0          0               225                    188   \n",
+       "\n",
+       "    DAY_OF_WEEK_n  WEATHER_DELAY_n  SECURITY_DELAY_n  AIR_SYSTEM_DELAY_n  \\\n",
+       "9               0              218                 0                  11   \n",
+       "27              4                0                 0                  19   \n",
+       "30              0                0                 0                  19   \n",
+       "31              1                0                 0                   0   \n",
+       "34              4                0                 0                   0   \n",
+       "\n",
+       "    AIRLINE_DELAY_n  LATE_AIRCRAFT_DELAY_n  \n",
+       "9                 0                      0  \n",
+       "27                0                      0  \n",
+       "30                0                      0  \n",
+       "31              136                      0  \n",
+       "34              154                      0  "
+      ]
+     },
+     "execution_count": 61,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "inputs_n.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 62,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "9     218.0\n",
+       "27     -6.0\n",
+       "30     -7.0\n",
+       "31    142.0\n",
+       "34    180.0\n",
+       "Name: DEPARTURE_DELAY, dtype: float64"
+      ]
+     },
+     "execution_count": 62,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "target.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Format Test data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 63,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.preprocessing import LabelEncoder\n",
+    "te_AIRLINE = LabelEncoder()\n",
+    "te_ORIGIN_AIRPORT = LabelEncoder()\n",
+    "te_DESTINATION_AIRPORT = LabelEncoder()\n",
+    "te_DAY_OF_WEEK = LabelEncoder()\n",
+    "te_WEATHER_DELAY = LabelEncoder()\n",
+    "te_SECURITY_DELAY = LabelEncoder()\n",
+    "te_AIR_SYSTEM_DELAY = LabelEncoder()\n",
+    "te_AIRLINE_DELAY = LabelEncoder()\n",
+    "te_LATE_AIRCRAFT_DELAY = LabelEncoder()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 64,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "inputs_test['AIRLINE_n'] = te_AIRLINE.fit_transform(inputs_test['AIRLINE'])\n",
+    "inputs_test['ORIGIN_AIRPORT_n'] = te_ORIGIN_AIRPORT.fit_transform(inputs_test['ORIGIN_AIRPORT'])\n",
+    "inputs_test['DESTINATION_AIRPORT_n'] = te_DESTINATION_AIRPORT.fit_transform(inputs_test['DESTINATION_AIRPORT'])\n",
+    "inputs_test['DAY_OF_WEEK_n'] = te_DAY_OF_WEEK.fit_transform(inputs_test['DAY_OF_WEEK'])\n",
+    "inputs_test['WEATHER_DELAY_n'] = te_DAY_OF_WEEK.fit_transform(inputs_test['WEATHER_DELAY'])\n",
+    "inputs_test['SECURITY_DELAY_n'] = te_DAY_OF_WEEK.fit_transform(inputs_test['SECURITY_DELAY'])\n",
+    "inputs_test['AIR_SYSTEM_DELAY_n'] = te_DAY_OF_WEEK.fit_transform(inputs_test['AIR_SYSTEM_DELAY'])\n",
+    "inputs_test['AIRLINE_DELAY_n'] = te_DAY_OF_WEEK.fit_transform(inputs_test['AIRLINE_DELAY'])\n",
+    "inputs_test['LATE_AIRCRAFT_DELAY_n'] = te_DAY_OF_WEEK.fit_transform(inputs_test['LATE_AIRCRAFT_DELAY'])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 65,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "inputs_test_n = inputs_test.drop(['AIRLINE', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT','DAY_OF_WEEK','SECURITY_DELAY','AIR_SYSTEM_DELAY','AIRLINE_DELAY','LATE_AIRCRAFT_DELAY'],axis='columns')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Decision Tree"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 66,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn import tree\n",
+    "model = tree.DecisionTreeClassifier()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "model = model.fit(inputs_n, target)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 71,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.994229581596418"
+      ]
+     },
+     "execution_count": 71,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "model.score(inputs_n,target)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# KNN"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.neighbors import KNeighborsClassifier\n",
+    "knn = KNeighborsClassifier(n_neighbors=5)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',\n",
+       "           metric_params=None, n_jobs=None, n_neighbors=5, p=2,\n",
+       "           weights='uniform')"
+      ]
+     },
+     "execution_count": 28,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "knn.fit(inputs_n, target)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.2315436673357007"
+      ]
+     },
+     "execution_count": 29,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "knn.score(inputs_n,target)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Linear regression"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,\n",
+       "         normalize=False)"
+      ]
+     },
+     "execution_count": 30,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "from sklearn import metrics, linear_model\n",
+    "regr = linear_model.LinearRegression()\n",
+    "regr.fit(inputs_n,target)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.994229581596418"
+      ]
+     },
+     "execution_count": 31,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "model.score(inputs_n,target)"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 2",
+   "language": "python",
+   "name": "python2"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython2",
+   "version": "2.7.16"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
